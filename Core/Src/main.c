@@ -53,10 +53,15 @@
 ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
 DMA_HandleTypeDef hdma_adc1;
+
 COMP_HandleTypeDef hcomp1;
+
 DAC_HandleTypeDef hdac1;
+
 TIM_HandleTypeDef htim16;
+
 UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 
@@ -75,6 +80,7 @@ static void MX_ADC2_Init(void);
 static void MX_COMP1_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_DAC1_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -127,11 +133,11 @@ int main(void)
   MX_COMP1_Init();
   MX_TIM16_Init();
   MX_DAC1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   lcd16x2_init_4bits(GPIOA, RS_Pin, GPIOC, Enable_Pin,
              GPIOB, D4_Pin, GPIOB, D5_Pin, GPIOB, D6_Pin, GPIOA, D7_Pin);
   LCD_Init();
-
 
   /* USER CODE END 2 */
 
@@ -139,29 +145,38 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
 	int previousMethod;
+	// Call the processButton function to check which button was pressed
+	// and return the corresponding method
 	int method = processButton(&hadc2);
+
+	// Check if the method is 0 (ADC method selected)
 	if (method == 0){
-		ADCmethod(&hadc1,&hadc2, &huart2);
-		previousMethod =0;
+		ADCmethod(&hadc1,&hadc2, &huart2,&huart3);
+		previousMethod =0; // Update the previous method to ADC
+
+	// Check if the method is 1 (Comparator method selected)
 	}else if (method == 1){
-		compMethod(&hcomp1, &htim16,&hadc2,&huart2);
-		previousMethod = 1;
+		compMethod(&hcomp1, &htim16,&hadc2,&huart2,&hdac1,&huart3);
+		previousMethod = 1; // Update the previous method to comparator
 	}
-	//displayLCD()
+
+	// Check if the method is 3 (No new method selected or debounce)
 	else if (method == 3){
+		// If the previous method was ADC, call ADC method again
 		if (previousMethod == 0){
-			ADCmethod(&hadc1,&hadc2, &huart2);
+			ADCmethod(&hadc1,&hadc2, &huart2,&huart3);
+
+			// If the previous method was comparator, call comparator method again
 		}else if (previousMethod == 1){
-			compMethod(&hcomp1, &htim16,&hadc2,&huart2);
+			compMethod(&hcomp1, &htim16,&hadc2,&huart2,&hdac1,&huart3);
 		}
 
+
 	}
-
-
-
-
   }
+
 
     /* USER CODE END WHILE */
 
@@ -292,11 +307,6 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK)
-  {
-      Error_Handler();
-  }
-
 
   /** Configure Regular Channel
   */
@@ -519,6 +529,41 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 57600;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_HalfDuplex_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -558,7 +603,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, D6_Pin|D5_Pin|D4_Pin|LCD_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(Enable_GPIO_Port, Enable_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, Enable_Pin|DE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -580,12 +625,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : Enable_Pin */
-  GPIO_InitStruct.Pin = Enable_Pin;
+  /*Configure GPIO pins : Enable_Pin DE_Pin */
+  GPIO_InitStruct.Pin = Enable_Pin|DE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(Enable_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
